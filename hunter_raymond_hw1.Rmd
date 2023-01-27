@@ -1,0 +1,40 @@
+---
+title: "Hunter_Raymond_HW1"
+author: "Ray Hunter"
+date: "2023-01-27"
+output:   
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, echo=TRUE, warning=FALSE, message=FALSE}
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(readxl)
+library(lubridate)
+```
+
+### Task 1
+
+reading in the data and wrangling 
+```{r}
+#read in the data
+ylf_amps <- read_excel(here("sierra_amphibians.xlsx"))  %>% 
+  #transform date into year
+  mutate(survey_date = year(survey_date)) %>% 
+  #filter out just yellow legged frogs 
+  filter(amphibian_species == "RAMU")  %>% 
+  #filtering out EggMass life stage
+  filter(amphibian_life_stage != "EggMass")
+
+ 
+
+
+
+
+
+
+```
+
