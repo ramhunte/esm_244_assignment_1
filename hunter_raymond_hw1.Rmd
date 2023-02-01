@@ -14,27 +14,121 @@ library(here)
 library(janitor)
 library(readxl)
 library(lubridate)
+library(patchwork)
 ```
 
 ### Task 1
 
-reading in the data and wrangling 
+1) Data table 1
 ```{r}
 #read in the data
-ylf_amps <- read_excel(here("sierra_amphibians.xlsx"))  %>% 
+frog_data <- read_excel(here("sierra_amphibians.xlsx")) 
+
+#creating data table 1
+ylf_mod1 <- frog_data %>% 
+    #filter out just yellow legged frogs and everything but eggmass
+filter(amphibian_species == "RAMU", amphibian_life_stage != "EggMass")  %>%
   #transform date into year
-  mutate(survey_date = year(survey_date)) %>% 
-  #filter out just yellow legged frogs 
-  filter(amphibian_species == "RAMU")  %>% 
-  #filtering out EggMass life stage
-  filter(amphibian_life_stage != "EggMass")
-
- 
-
-
-
-
-
-
+   mutate(survey_date = year(survey_date)) %>% 
+ group_by(survey_date, amphibian_life_stage) %>%
+  summarise(amphibian_number = sum(amphibian_number, na.rm = TRUE ) )
+  
 ```
+
+
+
+
+
+
+2) Data Table 2
+
+```{r}
+top_5_counts <- frog_data %>% 
+  #just adults/subadults and yellow legged frogs 
+  filter(amphibian_species == "RAMU", amphibian_life_stage %in% c("Adult", "SubAdult")) %>% 
+  #grouping lakes by id
+  group_by(lake_id) %>% 
+  #summarizing total count of amphibians
+  summarize(total_count = sum(amphibian_number)) %>% 
+   relocate(total_count) %>% 
+  #making lake id a factor
+  mutate(lake_id = factor(lake_id)) %>% 
+  slice_max(total_count, n = 5) %>% 
+  arrange(-total_count)
+ 
+```
+
+
+
+
+
+3) Gaphing 
+```{r}
+plot_1 <- ggplot(data = ylf_mod1, aes(x = survey_date, y = amphibian_number)) + 
+  geom_point() + 
+  facet_wrap(~amphibian_life_stage) + 
+  labs(x = "Survey Year", y = "Frog Count")
+
+
+
+
+plot_2 <- ggplot(data = top_5_counts, aes(x = fct_reorder(lake_id, total_count), y = total_count)) +
+  geom_col(fill = "blue") +
+  labs(y = "Total Frog Count (1995-2002)", x = "Lake ID Number") +
+  coord_flip() +
+  theme_minimal()
+
+plot_patch <- plot_1  /plot_2  + 
+  plot_layout(ncol=1,heights=c(4,3)) 
+
+plot_patch +  plot_annotation(
+  tag_levels = "A", 
+  caption = '**A:** Frog counts of Sierra Nevada Yellow Legged Frogs (*Ramu*) by lifestage across all years of the study (1995-2002). Tadpoles made up the largest portion of frog counts. **B:** Total adult/subadult frog counts from all years in the five most abundant lakes.'
+  )
+```
+
+
+
+### Task 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
