@@ -91,9 +91,64 @@ plot_patch +  plot_annotation(
 
 ### Task 2
 
+Model 1: Oxygen saturation as a function of water temp, salinity, and phosphate concentration
+Model 2: Oxygen saturation as a function of water temp, salinity, phosphate concentration, and depth.
+Model 3: Oxygen saturation as a function of water temp, salinity, phosphate concentration, nitrite    concentration, and depth.
+
+```{r}
+#read in and wrangle the data
+water_samples <- read_csv(here("calcofi_seawater_samples.csv")) %>% 
+  drop_na() %>%
+  rename(oxy = o2sat,
+    temp = t_deg_c,
+    depth=depth_m,
+    sal=salinity,
+    phos = po4u_m, 
+    nit = no2u_m)
+
+
+#assigning variables 
+f1 <- oxy ~ temp + sal + phos
+f2 <- oxy ~ temp + sal + phos + depth
+f3 <- oxy ~ temp + sal + phos + depth + nit
+
+#model 1 creation
+mdl1 <- lm(f1, data = water_samples)
+#model 2 creation
+mdl2 <- lm(f2, data = water_samples)
+#model 3 creation
+mdl3 <- lm(f3, data = water_samples)
 
 
 
+
+summary(mdl1)
+AIC(mdl1)
+BIC(mdl1)
+
+summary(mdl2)
+AIC(mdl2)
+BIC(mdl2)
+
+summary(mdl3)
+AIC(mdl3)
+BIC(mdl3)
+```
+
+Comparing AIC and BIC Values
+```{r}
+AIC(mdl1, mdl2, mdl3) 
+
+BIC(mdl1, mdl2, mdl3) 
+
+
+AICcmodavg::AICc(mdl1)
+AICc(mdl2)
+AICc(mdl3)
+
+AICcmodavg::aictab(list(mdl1, mdl2, mdl3))
+AICcmodavg::bictab(list(mdl1, mdl2, mdl3))
+```
 
 
 
