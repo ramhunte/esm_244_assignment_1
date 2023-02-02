@@ -8,23 +8,27 @@ output:
 ---
 
 ```{r setup, echo=TRUE, warning=FALSE, message=FALSE}
-knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE)
+knitr::opts_chunk$set(echo=TRUE, warning=FALSE, message=FALSE,  results=FALSE)
 library(tidyverse)
 library(here)
 library(janitor)
 library(readxl)
 library(lubridate)
 library(patchwork)
+library(AICcmodavg)
 ```
 
 ### Task 1
 
-1) Data table 1
+#### 1) Wrangling the Data:
+
+Here we are simply taking reading in the master data sheet provided by ... We then proceed to wrangle and modify selected variables and values to either be included or excluded from the plots
+
 ```{r}
-#read in the data
+#read in the master data sheet
 frog_data <- read_excel(here("sierra_amphibians.xlsx")) 
 
-#creating data table 1
+#creating data table 1 for graph A
 ylf_mod1 <- frog_data %>% 
     #filter out just yellow legged frogs and everything but eggmass
 filter(amphibian_species == "RAMU", amphibian_life_stage != "EggMass")  %>%
@@ -32,17 +36,11 @@ filter(amphibian_species == "RAMU", amphibian_life_stage != "EggMass")  %>%
    mutate(survey_date = year(survey_date)) %>% 
  group_by(survey_date, amphibian_life_stage) %>%
   summarise(amphibian_number = sum(amphibian_number, na.rm = TRUE ) )
-  
-```
 
 
 
 
-
-
-2) Data Table 2
-
-```{r}
+#creating data table 2 for graph B
 top_5_counts <- frog_data %>% 
   #just adults/subadults and yellow legged frogs 
   filter(amphibian_species == "RAMU", amphibian_life_stage %in% c("Adult", "SubAdult")) %>% 
@@ -53,47 +51,68 @@ top_5_counts <- frog_data %>%
    relocate(total_count) %>% 
   #making lake id a factor
   mutate(lake_id = factor(lake_id)) %>% 
+  #choosing the 5 most abundant lakes
   slice_max(total_count, n = 5) %>% 
+  #put in descending order
   arrange(-total_count)
  
 ```
 
+#### 2) Creating Graphs:
 
+Two graphs were created here that represent amphibian data in different ways. Graph **A** is a stack bar chart portraying total frog counts by life stage in each year where as graph **B** is showing just adult and sub adult frog counts in the top 5 most abundant lakes.
 
-
-
-3) Gaphing 
 ```{r}
-plot_1 <- ggplot(data = ylf_mod1, aes(x = survey_date, y = amphibian_number)) + 
-  geom_point() + 
-  facet_wrap(~amphibian_life_stage) + 
-  labs(x = "Survey Year", y = "Frog Count")
+#making the first stacked bar chart of frog coutns by life stage
+plot_1 <- ggplot(data = ylf_mod1, aes(x = survey_date, y = amphibian_number, fill = amphibian_life_stage)) +  geom_col() + 
+ labs(x = "Survey Year", y = "Frog Count") +
+  labs(fill='Life Stage') 
 
 
 
-
-plot_2 <- ggplot(data = top_5_counts, aes(x = fct_reorder(lake_id, total_count), y = total_count)) +
+#making the second bar chart of frog counts by most abundant lake 
+plot_2 <- ggplot(data = top_5_counts, aes(x = fct_reorder(lake_id, -total_count), y = total_count)) +
+  #making the bar chart blue
   geom_col(fill = "blue") +
+  #labeling the axis
   labs(y = "Total Frog Count (1995-2002)", x = "Lake ID Number") +
-  coord_flip() +
-  theme_minimal()
+  theme_minimal() 
 
-plot_patch <- plot_1  /plot_2  + 
-  plot_layout(ncol=1,heights=c(4,3)) 
+#patching together the plots
+plot_patch <- plot_1  + plot_2  + plot_layout(guides = 'collect') & theme( legend.position = 'bottom') 
 
-plot_patch +  plot_annotation(
-  tag_levels = "A", 
-  caption = '**A:** Frog counts of Sierra Nevada Yellow Legged Frogs (*Ramu*) by lifestage across all years of the study (1995-2002). Tadpoles made up the largest portion of frog counts. **B:** Total adult/subadult frog counts from all years in the five most abundant lakes.'
-  )
+
+#adding plot annotations A and B
+ plot_patch +  plot_annotation(
+  tag_levels = "A") 
 ```
+
+**A:** Frog counts of Sierra Nevada Yellow Legged frogs (*Rana muscosa*) by lifestage across all years of the study (1995-2002).
+
+**B:** Total adult and subadult *R. muscosa* counts from all years in the five most abundant lakes.
+
+
+
+
+
+**Sources Used:** Knapp, R.A., C. Pavelka, E.E. Hegeman, and T.C. Smith. 2020. The Sierra Lakes Inventory Project: Non-Native fish and community composition of lakes and ponds in the Sierra Nevada, California ver 2. Environmental Data Initiative. <https://doi.org/10.6073/pasta/d835832d7fd00d9e4466e44eea87fab3>
+
+
+
 
 
 
 ### Task 2
 
-Model 1: Oxygen saturation as a function of water temp, salinity, and phosphate concentration
-Model 2: Oxygen saturation as a function of water temp, salinity, phosphate concentration, and depth.
-Model 3: Oxygen saturation as a function of water temp, salinity, phosphate concentration, nitrite    concentration, and depth.
+#### Model Creation
+
+Three different models were created to represent how different abiotic factors are explaining oxygen concentration. The three models read as such
+
+**Model 1:** Oxygen saturation as a function of water temp, salinity, and phosphate concentration
+
+**Model 2:** Oxygen saturation as a function of water temp, salinity, phosphate concentration, and depth.
+
+**Model 3:** Oxygen saturation as a function of water temp, salinity, phosphate concentration, nitrite concentration, and depth.
 
 ```{r}
 #read in and wrangle the data
@@ -136,6 +155,7 @@ BIC(mdl3)
 ```
 
 Comparing AIC and BIC Values
+
 ```{r}
 AIC(mdl1, mdl2, mdl3) 
 
@@ -150,6 +170,29 @@ AICcmodavg::aictab(list(mdl1, mdl2, mdl3))
 AICcmodavg::bictab(list(mdl1, mdl2, mdl3))
 ```
 
+#### AIC and BIC Results
+
+Both AIC and BIC values suggest that Model 3 best explains oxygen saturation in the given data set. However, the BIC values for Model 2 and Model 3 are only 0.72 and 0.80 off from Model 1, so this suggests that all three models should be somewhat considered and not completely disregarded as inaccurate.
+
+#### 10 Fold Cross Validation
+
+```{r}
+#creating a training data set
+folds <- 10
+fold_vec <- rep(1:folds, length.out = nrow(water_samples))
+
+set.seed(42) 
+
+water_fold <- water_samples %>%
+  mutate(group = sample(fold_vec, size = n(), replace = FALSE))
+table(water_fold$group)
+
+### creating the first fold
+test_df <- water_fold %>%
+  filter(group == 1)
+
+train_df <- water_fold %>%
+  filter(group != 1)
 
 
 
@@ -157,33 +200,50 @@ AICcmodavg::bictab(list(mdl1, mdl2, mdl3))
 
 
 
+#creating a function to calculate root mean squared error
+calc_rmse <- function(x, y) {
+  rmse <- (x - y)^2 %>% mean() %>% sqrt()
+  return(rmse)
+}
+
+
+#creating linear models with the training data set
+training_lm1 <- lm(f1, data = train_df)
+training_lm2 <- lm(f2, data = train_df)
+training_lm3 <- lm(f3, data = train_df)
 
 
 
 
 
 
+#using models to predict the actual data set
+predict_test <- test_df %>%
+  mutate(model1 = predict(training_lm1, test_df),
+         model2 = predict(training_lm2, test_df),
+         model3 = predict(training_lm3, test_df)) 
 
+rmse_predict_test <- predict_test %>%
+  summarize(rmse_mdl1 = calc_rmse(model1, oxy),
+            rmse_mdl2 = calc_rmse(model2, oxy),
+            rmse_mdl3 = calc_rmse(model3, oxy))
 
+rmse_predict_test
+```
 
+#### Results of the 10 fold test
 
+Result from the test suggest that Model 1 is the best model out of the three for predicting oxygen saturation. Model 1 will predict oxygen saturation the best when given a new set of data compared to the other two models as it had the lowest root mean squared error value.
 
+#### Conclusion
 
+AIC values suggested that Model 3 explains the existing data the most accurately while cross validation suggests that Model 1 can predict oxygen saturation the best. Although the data set is small, which suggests AIC values should be used to identify the best model, we will move forward with Model 1 as our choice based off of cross validation as it incorporates more flexibility to accurately depict oxygen saturation from future water samples. Both models have their perspective pros and cons, but overall, Model 1 is more useful for predicting future outcomes.
 
+```{r}
+final_mdl <- lm(f1, data = water_samples)
+summary(final_mdl)
+```
 
+Model 1 Equation: `r equatiomatic::extract_eq(mdl1, wrap = FALSE)`
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Model 1 with coefficients: `r equatiomatic::extract_eq(mdl1, wrap = TRUE, use_coefs = TRUE)`
