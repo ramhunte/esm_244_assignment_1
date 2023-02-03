@@ -16,13 +16,19 @@ library(readxl)
 library(lubridate)
 library(patchwork)
 library(AICcmodavg)
+library(broom) 
+library(knitr)
 ```
 
 ### Task 1
 
+Data from Knapp et al. (2020) was used to visually represent how Sierra Nevada Yellow Legged Frog (*Rana muscosa*) population abundances have changed over the span of the study (1995-2002) throughout the southern Sierra Nevada mountains. Furthermore, we analyzed how the abundances of different frog lifestages have changed over this duration. This information is important to understand for managing wild populations of this endangered species so we can efficiently allocate our resources to ensure their protection.
+
+**Reference:** Knapp, R.A., C. Pavelka, E.E. Hegeman, and T.C. Smith. 2020. The Sierra Lakes Inventory Project: Non-Native fish and community composition of lakes and ponds in the Sierra Nevada, California ver 2. Environmental Data Initiative. <https://doi.org/10.6073/pasta/d835832d7fd00d9e4466e44eea87fab3>
+
 #### 1) Wrangling the Data:
 
-Here we are simply taking reading in the master data sheet provided by ... We then proceed to wrangle and modify selected variables and values to either be included or excluded from the plots
+Here the master data sheet was read in and wrangled to select the key characteristics analyzed in the study.
 
 ```{r}
 #read in the master data sheet
@@ -30,10 +36,10 @@ frog_data <- read_excel(here("sierra_amphibians.xlsx"))
 
 #creating data table 1 for graph A
 ylf_mod1 <- frog_data %>% 
-    #filter out just yellow legged frogs and everything but eggmass
-filter(amphibian_species == "RAMU", amphibian_life_stage != "EggMass")  %>%
   #transform date into year
    mutate(survey_date = year(survey_date)) %>% 
+   #filter out just yellow legged frogs and everything but eggmass
+filter(amphibian_species == "RAMU", amphibian_life_stage != "EggMass")  %>%
  group_by(survey_date, amphibian_life_stage) %>%
   summarise(amphibian_number = sum(amphibian_number, na.rm = TRUE ) )
 
@@ -55,16 +61,20 @@ top_5_counts <- frog_data %>%
   slice_max(total_count, n = 5) %>% 
   #put in descending order
   arrange(-total_count)
- 
+top_5_counts$lake_id <- sub("^", "Lake ", top_5_counts$lake_id)
+
 ```
 
 #### 2) Creating Graphs:
 
-Two graphs were created here that represent amphibian data in different ways. Graph **A** is a stack bar chart portraying total frog counts by life stage in each year where as graph **B** is showing just adult and sub adult frog counts in the top 5 most abundant lakes.
+Two graphs were created that represent three amphibian life stage (adult, saubadult, and tadpole) abundances over time and most highly populated lakes in the study.
 
 ```{r}
 #making the first stacked bar chart of frog coutns by life stage
-plot_1 <- ggplot(data = ylf_mod1, aes(x = survey_date, y = amphibian_number, fill = amphibian_life_stage)) +  geom_col() + 
+plot_1 <- ggplot(data = ylf_mod1, 
+                 aes(x = survey_date, y = amphibian_number, fill = amphibian_life_stage)) + 
+ggtitle("Frog Counts by Life Stage") + 
+  geom_col() + 
  labs(x = "Survey Year", y = "Frog Count") +
   labs(fill='Life Stage') 
 
@@ -72,10 +82,12 @@ plot_1 <- ggplot(data = ylf_mod1, aes(x = survey_date, y = amphibian_number, fil
 
 #making the second bar chart of frog counts by most abundant lake 
 plot_2 <- ggplot(data = top_5_counts, aes(x = fct_reorder(lake_id, -total_count), y = total_count)) +
+  ggtitle("Five Most Abundant Lakes") +
   #making the bar chart blue
   geom_col(fill = "blue") +
   #labeling the axis
-  labs(y = "Total Frog Count (1995-2002)", x = "Lake ID Number") +
+  scale_x_discrete(guide = guide_axis(n.dodge=2)) +
+  labs(y = "Total Frog Count (1995-2002)", x = "") +
   theme_minimal() 
 
 #patching together the plots
@@ -87,32 +99,27 @@ plot_patch <- plot_1  + plot_2  + plot_layout(guides = 'collect') & theme( legen
   tag_levels = "A") 
 ```
 
-**A:** Frog counts of Sierra Nevada Yellow Legged frogs (*Rana muscosa*) by lifestage across all years of the study (1995-2002).
+*Figure 1*:
 
-**B:** Total adult and subadult *R. muscosa* counts from all years in the five most abundant lakes.
+*A:* Frog counts of *Rana muscosa* by lifestage (not including eggmass) across all years of the study (1995-2002). Tadpole abundances were uniformly the most abundant with peak populations in 2002. No data was collected in 1998 or 1999.
 
-
-
-
-
-**Sources Used:** Knapp, R.A., C. Pavelka, E.E. Hegeman, and T.C. Smith. 2020. The Sierra Lakes Inventory Project: Non-Native fish and community composition of lakes and ponds in the Sierra Nevada, California ver 2. Environmental Data Initiative. <https://doi.org/10.6073/pasta/d835832d7fd00d9e4466e44eea87fab3>
-
-
-
-
-
+*B:* Total adult and subadult *Rana muscosa* counts from all years in the five most abundant lakes. Tadpoles and eggmass lifestages were excluded.
 
 ### Task 2
 
+In Task 2 we analyze the key variables that explain and predict oxygen saturation through linear regression modeling and cross validation methods. The goal is to come up with a model that best explains the existing data and also predicts oxygen saturation from future samples. The data used here is provided by CalCOFI cruises that has been collecting hydrographic and biological data since 1949.
+
+**Reference:** *calcofi_seawater_samples*. CalCOFI. (2022, July 6). Retrieved February 2, 2023, from <https://calcofi.org/>
+
 #### Model Creation
 
-Three different models were created to represent how different abiotic factors are explaining oxygen concentration. The three models read as such
+Three different linear models were created to represent how different abiotic factors are explaining oxygen concentration:
 
-**Model 1:** Oxygen saturation as a function of water temp, salinity, and phosphate concentration
+**Model 1:** Oxygen saturation as a function of water temperature, salinity, and phosphate concentration.
 
-**Model 2:** Oxygen saturation as a function of water temp, salinity, phosphate concentration, and depth.
+**Model 2:** Oxygen saturation as a function of water temperature, salinity, phosphate concentration, and depth.
 
-**Model 3:** Oxygen saturation as a function of water temp, salinity, phosphate concentration, nitrite concentration, and depth.
+**Model 3:** Oxygen saturation as a function of water temperature, salinity, phosphate concentration, depth, and nitrite concentration.
 
 ```{r}
 #read in and wrangle the data
@@ -154,7 +161,9 @@ AIC(mdl3)
 BIC(mdl3)
 ```
 
-Comparing AIC and BIC Values
+#### AIC and BIC Comparison
+
+AIC and BIC values of the three different linear models were compared to select the best model. Model 3 best explains oxygen saturation in the given data set as it has the lowest AIC and BIC values as well as delta AIC and delta BIC values of zero. The delta AIC values indicate significant differences in model accuracy of Model 1 and 2 (delta AIC >2). However, the BIC values for Model 1 and Model 2 are only 0.72 and 0.80 off from Model 3, so this suggests that all three models should be somewhat considered and not completely disregarded as inaccurate.
 
 ```{r}
 AIC(mdl1, mdl2, mdl3) 
@@ -170,11 +179,29 @@ AICcmodavg::aictab(list(mdl1, mdl2, mdl3))
 AICcmodavg::bictab(list(mdl1, mdl2, mdl3))
 ```
 
-#### AIC and BIC Results
+```{r, results=TRUE}
+# Listing the AIC values
+AIC_list<-c(AIC(mdl1), AIC(mdl2), AIC(mdl3))
+BIC_list <- c(BIC(mdl1), BIC(mdl2), BIC(mdl3))
 
-Both AIC and BIC values suggest that Model 3 best explains oxygen saturation in the given data set. However, the BIC values for Model 2 and Model 3 are only 0.72 and 0.80 off from Model 1, so this suggests that all three models should be somewhat considered and not completely disregarded as inaccurate.
+# merging data and selecting specific columns
+model_output <-rbind(data.frame(glance(mdl1)),data.frame(glance(mdl2)), data.frame(glance(mdl3))) %>% select(adj.r.squared, AIC, BIC) 
 
-#### 10 Fold Cross Validation
+# calculate delta AIC or the distance in AIC from the lowest value (the best model) and the other models.
+model_output <- mutate(model_output, delta.AIC = AIC-min(AIC_list))
+model_output <- mutate(model_output, delta.BIC = BIC-min(BIC_list))
+model_output$model<-c( "Model 1","Model 2", "Model 3")
+model_output<-model_output[,c("model","adj.r.squared", "AIC", "delta.AIC", "BIC", "delta.BIC" )]
+
+
+
+kable(model_output, format = "markdown", digits = 3,caption = "*Figure 2*: Model outputs showing the adjusted R^2^ value, AIC/BIC values, and delta AIC/BIC values for all models.")
+
+```
+
+#### 10 Fold Cross Validation Test and Results
+
+A 10 fold cross validation test was performed to test which model was most accurate at predicting oxygen saturation. Result from the test suggest that Model 1 is the best model out of the three for predicting oxygen saturation. Model 1 will predict oxygen saturation the most accurately when given a new set of data compared to the other two models as it had the lowest root mean squared error value.
 
 ```{r}
 #creating a training data set
@@ -227,23 +254,72 @@ rmse_predict_test <- predict_test %>%
   summarize(rmse_mdl1 = calc_rmse(model1, oxy),
             rmse_mdl2 = calc_rmse(model2, oxy),
             rmse_mdl3 = calc_rmse(model3, oxy))
-
-rmse_predict_test
 ```
 
-#### Results of the 10 fold test
+```{r, results=TRUE}
 
-Result from the test suggest that Model 1 is the best model out of the three for predicting oxygen saturation. Model 1 will predict oxygen saturation the best when given a new set of data compared to the other two models as it had the lowest root mean squared error value.
+tenfold_output <- rmse_predict_test %>% 
+  rename(Model_1_rmse = rmse_mdl1,Model_2_rmse = rmse_mdl2, Model_3_rmse = rmse_mdl3 )
+kable(tenfold_output, format = "markdown", digits = 3,caption = "*Figure 3*: Root mean squared error outputs for each model from the 10 fold cross validation test. The lower the error the more accurate the model. Model 3 has the lowest error.")
+```
+
+#### K Fold Cross Validation and Results
+
+To further explore the models' ability to predict oxygen saturation, a K fold cross validation test was performed. Results from the test suggest that Model 3 is the most accurate in predicting oxygen concentration compared to Models 1 and 2 as it had the smallest average root mean squared error value.
+
+```{r, results=TRUE}
+rmse_df <- data.frame()
+
+for(i in 1:folds) {
+  # i <- 1
+  kfold_test_df <- water_fold %>%
+    filter(group == i)
+  kfold_train_df <- water_fold %>%
+    filter(group != i)
+  
+  kfold_lm1 <- lm(f1, data = kfold_train_df)
+  kfold_lm2 <- lm(f2, data = kfold_train_df)
+  kfold_lm3 <- lm(f3, data = kfold_train_df)
+  
+
+  kfold_pred_df <- kfold_test_df %>%
+    mutate(mdl1 = predict(kfold_lm1, kfold_test_df),
+           mdl2 = predict(kfold_lm2, .),
+           mdl3 = predict(kfold_lm3, .))
+  kfold_rmse <- kfold_pred_df %>%
+    summarize(rmse_mdl1 = calc_rmse(mdl1, oxy),
+              rmse_mdl2 = calc_rmse(mdl2, oxy),
+              rmse_mdl3 = calc_rmse(mdl3, oxy),
+              test_gp = i)
+  
+  rmse_df <- bind_rows(rmse_df, kfold_rmse)
+}
+
+
+kfold_output <- rmse_df %>% 
+  summarize(Model_1_rmse = mean(rmse_mdl1),
+           Model_2_rmse = mean(rmse_mdl2),
+           Model_3_rmse =mean(rmse_mdl3))
+kable(kfold_output,  format = "markdown", digits = 3,caption = "*Figure 4*: The average root mean squared error outputs for each model from the K fold cross validation test. The lower the error the more accurate the model. Model 3 has the lowest error.")
+
+```
+
+
+
+
 
 #### Conclusion
+Out of all the models tested, Model 3 explains oxygen saturation in the data set the best as suggested by it having the lowest AIC and BIC values. Furthermore, Model 3 is also the best model in predicting oxygen saturation from new data sets as shown in the K fold cross validation test yielding the lowest average root mean squared error. However, a 10 fold cross validation test suggests that Model 1 is better at predicting oxygen saturation than Model 3. Because the K fold test incorporate more folds and the entire data set, we chose to use the findings from this test indicating that Model 3 is the most accurate model. In conclusion, oxygen saturation can most accurately be explained and predicted based off of a combination of water temperature, salinity, phosphate concentration, depth, and nitrite concentration.
 
-AIC values suggested that Model 3 explains the existing data the most accurately while cross validation suggests that Model 1 can predict oxygen saturation the best. Although the data set is small, which suggests AIC values should be used to identify the best model, we will move forward with Model 1 as our choice based off of cross validation as it incorporates more flexibility to accurately depict oxygen saturation from future water samples. Both models have their perspective pros and cons, but overall, Model 1 is more useful for predicting future outcomes.
+```{r, results=TRUE}
+final_mdl <- lm(f3, data = water_samples)
 
-```{r}
-final_mdl <- lm(f1, data = water_samples)
-summary(final_mdl)
+
+out_3_tidy <- tidy(mdl3)
+
+kable(out_3_tidy, format = "markdown", digits = 3, caption = "*Figure 5*: Output for Model 3 showing the coefficients for each variable, standard error, statistic value, and p value. temp = temperature, sal = salinity, phos = phosphorous concentration, depth = depth, and nit = nitrate concentration")
 ```
 
-Model 1 Equation: `r equatiomatic::extract_eq(mdl1, wrap = FALSE)`
+Model 3 Equation: `r equatiomatic::extract_eq(mdl3, wrap = FALSE)`
 
-Model 1 with coefficients: `r equatiomatic::extract_eq(mdl1, wrap = TRUE, use_coefs = TRUE)`
+Model 3 with coefficients: `r equatiomatic::extract_eq(mdl3, wrap = TRUE, use_coefs = TRUE)`
